@@ -56,7 +56,7 @@ class scientist:
         while self.conjecture.delta:
             self.count += 1
             if self.update_final_states(self.strings) and self.conjecture.is_minimal(self.f):
-                return {'id': input['id'], 'dfa': self.conjecture, 'f': self.f, 'not_f': self.not_f, 'count': self.count}
+                return {'dfa': self.conjecture, 'f': self.f, 'not_f': self.not_f, 'count': self.count}
             self.conjecture.nextdfa(self.n, self.k)
         return self.count
 
@@ -67,30 +67,25 @@ class scientist:
         search_n = self.n
         while True:
             inputs = []
-            inputs.append({'flag': flag_cursor.flag.copy(), 'n': search_n, 'id': 0, 'strings': self.strings})
-            for i in range(1, SEARCH_BATCH_SIZE):
+            inputs.append({'flag': flag_cursor.flag.copy(), 'n': search_n, 'strings': self.strings})
+            for _ in range(1, SEARCH_BATCH_SIZE):
                 flag_cursor.nextflag(search_n, self.k)
                 if not flag_cursor.flag:
                     search_n += 1
                     flag_cursor.nextflag(search_n, self.k)
-                inputs.append({'flag': flag_cursor.flag.copy(), 'n': search_n, 'id': i, 'strings': self.strings})
+                inputs.append({'flag': flag_cursor.flag.copy(), 'n': search_n, 'strings': self.strings})
 
-            res = self.pool.map(self.findDFA, inputs, chunksize=1)
+            for result in self.pool.imap(self.findDFA, inputs, chunksize=1):
+                if not isinstance(result, dict):
+                    self.count += result
+                    continue
 
-            target_index = None
-            for i in range(len(res)):
-                if isinstance(res[i], dict):
-                    self.count += res[i]['count']
-                    if target_index is None or res[i]['id'] < res[target_index]['id']:
-                        target_index = i
-                else:
-                    self.count += res[i]
-
-            if target_index is not None:
-                self.conjecture = res[target_index]['dfa']
+                self.count += result['count']
+                self.conjecture = result['dfa']
                 self.n = self.conjecture.n
-                self.f = res[target_index]['f']
-                self.not_f = res[target_index]['not_f']
+                self.f = result['f']
+                self.not_f = result['not_f']
+                self.shutdown()
                 self.count_final += 1
                 self.conjecture.render(self.count_final, self.f)
                 print("\r" + str(self.count) + " DFAs processed", end="", flush=True)
