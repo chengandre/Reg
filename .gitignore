@@ -3,3 +3,7 @@
 test.dSYM
 *.DS_Store
 __pycache__
+.env
+.venv
+*.txt
+*.png
