@@ -8,6 +8,7 @@ def sort_tuple(tup):
 class dfa:
     def __init__(self, n):
         self.k = 2 
+        self.n = n
         self.flag = [0] + [i*self.k-1 for i in range(1,n)]
         self.delta = []
         self.nextdfa(n, self.k)
@@ -63,7 +64,7 @@ class dfa:
         
         graph.node(" ", style="invisible",width="0", height="0")
         for i in range(len(self.flag)):
-            if i in f:
+            if (1 << i) & f:
                 graph.node(str(i), shape="doublecircle")
             else:
                 graph.node(str(i), shape="circle")
@@ -75,12 +76,18 @@ class dfa:
         graph.render("./current_session/out" + str(count_final-1), format='png')
         os.remove("./current_session/out" + str(count_final-1))
     
-    def is_minimal(self, f):
+    def is_minimal(self, f2):
+        f = []
+        not_f = []
+        for i in range(len(self.flag)):
+            if (1 << i) & f2:
+                f += [i]
+            else:
+                not_f += [i]
         marked = {}
         for x in itertools.combinations(range(len(self.flag)), 2):
             marked[x] = [0]
         
-        not_f = [x for x in range(len(self.flag)) if x not in f]
         for x in itertools.product(f, not_f):
             marked[sort_tuple(x)] = [1]
             
@@ -121,9 +128,9 @@ class dfa:
         for i in range(len(string)):
             current_state = self.delta[self.k*current_state + int(string[i])]
         return current_state
-    
-    
-    
-    
-            
-          
+
+    def reset(self, n, flag):
+        self.n = n
+        self.flag = flag
+        self.delta = []
+        self.nextdfa(self.n, self.k)

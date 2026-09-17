@@ -1,20 +1,42 @@
 import os
 import shutil
+import multiprocessing
+import signal
 from dfa import *
+
+def init_worker():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 class scientist:
     def __init__(self):
         self.n = 2
         self.k = 2
         self.conjecture = dfa(self.n)
+        self.flag = [0] + [i*self.k-1 for i in range(1,self.n)]
+        self.pool = None
         
         self.count = 1
         self.count_final = 1
         
         self.strings = []
-        self.f = []
-        self.not_f = []
+        self.f = 0
+        self.not_f = 0
         self.start()
+
+    def __getstate__(self):
+        self_dict = self.__dict__.copy()
+        del self_dict['pool']
+        return self_dict
+
+    def start_pool(self):
+        if self.pool is None:
+            self.pool = multiprocessing.Pool(initializer=init_worker)
+
+    def shutdown(self):
+        if self.pool is not None:
+            self.pool.terminate()
+            self.pool.join()
+            self.pool = None
         
     def start(self):
         if os.path.exists("./current_session"):
@@ -25,60 +47,81 @@ class scientist:
         self.conjecture.render(self.count_final, self.f)
         print("\r" + str(self.count) + " DFAs processed", end="", flush=True)
         
-    def update_conjecture(self):
-        while True:
-            while self.conjecture.flag != []:
-                self.conjecture.nextdfa(self.n, self.k)
-                
-                while self.conjecture.delta != []:
-                    self.count += 1
-                    if self.count % 100000 == 0:
-                        print("\r" + str(self.count) + " DFAs processed", end="", flush=True)
-                        
-                    if self.update_final_states(self.strings) and self.conjecture.is_minimal(self.f):
-                        self.count_final += 1
-                        self.conjecture.render(self.count_final, self.f)
-                        print("\r" + str(self.count) + " DFAs processed", end="", flush=True)
-                        
-                        return
-                    self.conjecture.nextdfa(self.n, self.k)
-                self.conjecture.nextflag(self.n, self.k)
-            self.n += 1
-            self.conjecture.nextflag(self.n, self.k)
+    def findDFA(self, input):
+        self.flag = input['flag']
+        self.n = input['n']
+        self.strings = input['strings']
+        self.conjecture.reset(self.n, self.flag)
+        self.count = 0
+        while self.conjecture.delta:
+            self.count += 1
+            if self.update_final_states(self.strings) and self.conjecture.is_minimal(self.f):
+                return {'id': input['id'], 'dfa': self.conjecture, 'f': self.f, 'not_f': self.not_f, 'count': self.count}
             self.conjecture.nextdfa(self.n, self.k)
+        return self.count
+
+    def update_conjecture(self):
+        self.start_pool()
+        while True:
+            inputs = []
+            inputs.append({'flag': self.conjecture.flag.copy(), 'n': self.n, 'id': 0, 'strings': self.strings})
+            for i in range(1, 10):
+                self.conjecture.nextflag(self.n, self.k)
+                self.flag = self.conjecture.flag
+                if not self.flag:
+                    self.n += 1
+                    self.conjecture.nextflag(self.n, self.k)
+                    self.flag = self.conjecture.flag
+                inputs.append({'flag': self.conjecture.flag.copy(), 'n': self.n, 'id': i, 'strings': self.strings})
+
+            res = self.pool.map(self.findDFA, inputs, chunksize=1)
+
+            target_index = None
+            for i in range(len(res)):
+                if isinstance(res[i], dict):
+                    self.count += res[i]['count']
+                    if target_index is None or res[i]['id'] < res[target_index]['id']:
+                        target_index = i
+                else:
+                    self.count += res[i]
+
+            if target_index is not None:
+                self.conjecture = res[target_index]['dfa']
+                self.flag = self.conjecture.flag
+                self.n = self.conjecture.n
+                self.f = res[target_index]['f']
+                self.not_f = res[target_index]['not_f']
+                self.count_final += 1
+                self.conjecture.render(self.count_final, self.f)
+                print("\r" + str(self.count) + " DFAs processed", end="", flush=True)
+                return
             
     def update_final_states(self, strings):
-        self.f = []
-        self.not_f = []
+        self.f = 0
+        self.not_f = 0
         for x in strings:
+            state = 1 << self.conjecture.get_final_state(x[1])
             if x[0]:
-                self.add_final_state(self.conjecture.get_final_state(x[1]))
-        self.f = list(set(tuple(self.f)))
-        
-        for x in strings:
-            if x[0] == 0:
-                state = self.conjecture.get_final_state(x[1])
-                if state in self.f:
+                if state & self.not_f:
                     return False
-                
-                self.add_not_final_state(state)
-                
-        self.not_f = list(set(tuple(self.not_f)))
+                self.f |= state
+            else:
+                if state & self.f:
+                    return False
+                self.not_f |= state
         return True
     
     def add_final_state(self, state):
-        if state < self.n:
-            self.f += [state]
+        self.f |= state
     
     def add_not_final_state(self, state):
-        if state < self.n:
-            self.not_f += [state]  
+        self.not_f |= state
     
     
     def add_accepted_string(self, state):
-        if state in self.f:
+        if state & self.f:
             return
-        elif state not in self.not_f:
+        elif state & self.not_f == 0:
             self.add_final_state(state)
             if self.conjecture.is_minimal(self.f):
                 self.count += 1
@@ -89,9 +132,9 @@ class scientist:
         return
     
     def add_rejected_string(self, state):
-        if state in self.not_f:
+        if state & self.not_f:
             return
-        elif state not in self.f:
+        elif state & self.f == 0:
             self.add_not_final_state(state)
             return
         self.update_conjecture()
@@ -107,7 +150,7 @@ class scientist:
             file.write(str(is_in) + " " + string + "\n")
         file.close()
         
-        string_final_state = self.conjecture.get_final_state(string)
+        string_final_state = 1 << self.conjecture.get_final_state(string)
         if is_in:
             self.add_accepted_string(string_final_state)
         else:
