@@ -1,10 +1,11 @@
 import os
 import shutil
 import multiprocessing
+import queue
 import signal
 from dfa import *
 
-SEARCH_BATCH_SIZE = max(2, min(10, os.cpu_count() or 1))
+SEARCH_WORKERS = max(1, min(10, os.cpu_count() or 1))
 
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -31,7 +32,7 @@ class scientist:
 
     def start_pool(self):
         if self.pool is None:
-            self.pool = multiprocessing.Pool(processes=SEARCH_BATCH_SIZE, initializer=init_worker)
+            self.pool = multiprocessing.Pool(processes=SEARCH_WORKERS, initializer=init_worker)
 
     def shutdown(self):
         if self.pool is not None:
@@ -65,31 +66,57 @@ class scientist:
         flag_cursor = dfa(self.n)
         flag_cursor.flag = self.conjecture.flag.copy()
         search_n = self.n
-        while True:
-            inputs = []
-            inputs.append({'flag': flag_cursor.flag.copy(), 'n': search_n, 'strings': self.strings})
-            for _ in range(1, SEARCH_BATCH_SIZE):
+        completed = queue.SimpleQueue()
+        pending = {}
+        finished = {}
+        submitted = 0
+        next_result = 0
+        match_found = False
+
+        def submit_next():
+            nonlocal search_n, submitted
+            if submitted:
                 flag_cursor.nextflag(search_n, self.k)
                 if not flag_cursor.flag:
                     search_n += 1
                     flag_cursor.nextflag(search_n, self.k)
-                inputs.append({'flag': flag_cursor.flag.copy(), 'n': search_n, 'strings': self.strings})
+            index = submitted
+            input = {'flag': flag_cursor.flag.copy(), 'n': search_n, 'strings': self.strings}
+            pending[index] = self.pool.apply_async(
+                self.findDFA,
+                (input,),
+                callback=lambda _: completed.put(index),
+                error_callback=lambda _: completed.put(index),
+            )
+            submitted += 1
 
-            for result in self.pool.imap(self.findDFA, inputs, chunksize=1):
-                if not isinstance(result, dict):
-                    self.count += result
-                    continue
+        for _ in range(SEARCH_WORKERS):
+            submit_next()
 
-                self.count += result['count']
-                self.conjecture = result['dfa']
-                self.n = self.conjecture.n
-                self.f = result['f']
-                self.not_f = result['not_f']
-                self.shutdown()
-                self.count_final += 1
-                self.conjecture.render(self.count_final, self.f)
-                print("\r" + str(self.count) + " DFAs processed", end="", flush=True)
-                return
+        while True:
+            index = completed.get()
+            result = pending.pop(index).get()
+            finished[index] = result
+            if isinstance(result, dict):
+                match_found = True
+            if not match_found:
+                submit_next()
+
+            while next_result in finished:
+                result = finished.pop(next_result)
+                if isinstance(result, dict):
+                    self.count += result['count']
+                    self.conjecture = result['dfa']
+                    self.n = self.conjecture.n
+                    self.f = result['f']
+                    self.not_f = result['not_f']
+                    self.shutdown()
+                    self.count_final += 1
+                    self.conjecture.render(self.count_final, self.f)
+                    print("\r" + str(self.count) + " DFAs processed", end="", flush=True)
+                    return
+                self.count += result
+                next_result += 1
 
     def update_final_states(self, strings):
         self.f = 0
