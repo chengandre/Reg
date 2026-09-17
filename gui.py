@@ -40,7 +40,7 @@ if __name__ == "__main__":
             accepted_listbox.insert(tk.END, "eps")
         else:
             accepted_listbox.insert(tk.END, string)
-       
+
 
     rejected_frame = tk.Frame(root)
     rejected_frame.grid(row=1, column=1, padx=10, pady=10)
@@ -61,13 +61,13 @@ if __name__ == "__main__":
             rejected_listbox.insert(tk.END, "eps")
         else:
             rejected_listbox.insert(tk.END, string)
-            
-            
+
+
     def clear_accepted_text(event):
         current_text = accept_input.get()
         if current_text == accept_text:
             accept_input.delete(0, tk.END)
-            
+
     def restore_accepted_text(event):
         current_text = accept_input.get()
         if current_text == "":
@@ -87,11 +87,11 @@ if __name__ == "__main__":
             accept_string('')
         else:
             accept_string(string)
-        
-        
+
+
     accept_input_frame = tk.Frame(root)
     accept_input_frame.grid(row=2, column=0, padx=10, pady=10)
-      
+
     accept_text = "String to accept"
     accept_input = tk.Entry(accept_input_frame)
     accept_input.insert(0, accept_text)
@@ -107,18 +107,18 @@ if __name__ == "__main__":
         current_text = reject_input.get()
         if current_text == reject_text:
             reject_input.delete(0, tk.END)
-            
+
     def restore_rejected_text(event):
         current_text = reject_input.get()
         if current_text == "":
             reject_input.insert(0, reject_text)
-            
+
     def reject_string(string):
         guess.add_string(0, string)
         add_rejected_string(string)
         reject_input.delete(0, tk.END)
         update_dfa_image()
-        
+
     def get_rejected_string():
         string = reject_input.get()
         if string == reject_text or guess.known_string(string) or (not valid(string) and string != 'eps'):
@@ -166,27 +166,26 @@ if __name__ == "__main__":
     def update_dfa_image():
         global curr_image
         curr_image = guess.count_final-1
-        
-        
+
         image_path = "./current_session/out" + str(guess.count_final-1) + ".png"
         image = Image.open(image_path)
         image = image.resize((math.floor(image.width*image_ratio), math.floor(image.height*image_ratio)))
         tk_image = ImageTk.PhotoImage(image)
-        
+
         global image_box
         image_box.configure(width=image.width, height=image.height)
         image_box.create_image(0, 0, image=tk_image, anchor="nw")
         image_box.image = tk_image
-        
+
         global image_label
         image_label.configure(text=image_path)
-        
+
         global num_processed_dfa_label
         num_processed_dfa_label.configure(text="Number of DFAs processed: " + str(guess.count))
-        
+
         global num_final_dfa_label
         num_final_dfa_label.configure(text="Number of Conjectures: " + str(guess.count_final))
-        
+
         root.update_idletasks()
         root.geometry('{}x{}'.format(root.winfo_reqwidth(), root.winfo_reqheight()))
 
@@ -198,15 +197,15 @@ if __name__ == "__main__":
         image = Image.open(image_path)
         image = image.resize((math.floor(image.width*image_ratio), math.floor(image.height*image_ratio)))
         tk_image = ImageTk.PhotoImage(image)
-        
+
         global image_box
         image_box.configure(width=math.floor(image.width), height=math.floor(image.height))
         image_box.create_image(0, 0, image=tk_image, anchor="nw")
         image_box.image = tk_image
-        
+
         global image_label
         image_label.configure(text=image_path)
-        
+
         root.update_idletasks()
         root.geometry('{}x{}'.format(root.winfo_reqwidth(), root.winfo_reqheight()))
 
@@ -218,12 +217,12 @@ if __name__ == "__main__":
         image = Image.open(image_path)
         image = image.resize((math.floor(image.width*image_ratio), math.floor(image.height*image_ratio)))
         tk_image = ImageTk.PhotoImage(image)
-        
+
         global image_box
         image_box.configure(width=image.width, height=image.height)
         image_box.create_image(0, 0, image=tk_image, anchor="nw")
         image_box.image = tk_image
-        
+
         global image_label
         image_label.configure(text=image_path)
 
@@ -242,15 +241,15 @@ if __name__ == "__main__":
     backwards_button.pack(side=tk.LEFT, padx=5)
 
     forward_button = tk.Button(image_button_frame, text=">", command=next_dfa_image)
-    forward_button.pack(side=tk.LEFT, padx=5) 
+    forward_button.pack(side=tk.LEFT, padx=5)
 
     def set_font_size():
         size = int(font_size_input.get())
         tkFont.nametofont("TkDefaultFont").configure(size=size)
         tkFont.nametofont("TkTextFont").configure(size=size)
-        
+
         root.update_idletasks()
-        root.geometry('{}x{}'.format(root.winfo_reqwidth(), root.winfo_reqheight())) 
+        root.geometry('{}x{}'.format(root.winfo_reqwidth(), root.winfo_reqheight()))
 
     font_size_input_frame = tk.Frame(root)
     font_size_input_frame.grid(row=0, column=0, padx=10, pady=10)
@@ -264,21 +263,21 @@ if __name__ == "__main__":
         size = float(image_size_input.get())
         global image_ratio
         image_ratio = size
-        
+
         global curr_image
         image_path = "./current_session/out" + str(curr_image) + ".png"
         image = Image.open(image_path)
         image = image.resize((math.floor(image.width*image_ratio), math.floor(image.height*image_ratio)))
         tk_image = ImageTk.PhotoImage(image)
-        
+
         global image_box
         image_box.configure(width=image.width, height=image.height)
         image_box.create_image(0, 0, image=tk_image, anchor="nw")
         image_box.image = tk_image
-        
+
         global image_label
         image_label.configure(text=image_path)
-        
+
         root.update_idletasks()
         root.geometry('{}x{}'.format(root.winfo_reqwidth(), root.winfo_reqheight()))
 
@@ -302,7 +301,7 @@ if __name__ == "__main__":
     def load_file():
         script_dir = os.path.dirname(os.path.abspath(__file__))
         file_path = filedialog.askopenfilename(initialdir=script_dir)
-        
+
         if file_path:
             with open(file_path, 'r') as file:
                 reset_dfa()
@@ -318,20 +317,19 @@ if __name__ == "__main__":
                             accept_string(string[1])
                         else:
                             reject_string(string[1])
-                
 
 
     def export_file():
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        
+
         folder_path = filedialog.askdirectory(initialdir=script_dir)
-        
+
         if folder_path:
             for file in os.listdir("./current_session/"):
                 file_path = os.path.join("./current_session/", file)
                 destination_path = os.path.join(folder_path, file)
                 shutil.copy2(file_path, destination_path)
-            
+
     options_frame = tk.Frame(root)
     options_frame.grid(row=0, column=2, padx=10, pady=10)
 
