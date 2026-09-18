@@ -1,9 +1,9 @@
 .vscode
 .ipynb_checkpoints
 test.dSYM
-*.DS_Store
-__pycache__
+.DS_Store
+__pycache__/
 .env
-.venv
-*.txt
+.venv/
+current_session/
 *.png
